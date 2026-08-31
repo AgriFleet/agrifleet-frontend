@@ -2,15 +2,41 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/services/api';
+import { useToast } from '@/context/ToastContext';
+import MapViewModal from '@/components/ui/MapViewModal';
+import { 
+  Tractor, 
+  Plus, 
+  Search, 
+  MapPin, 
+  Star, 
+  Edit3, 
+  X, 
+  Filter, 
+  LayoutGrid, 
+  List, 
+  CheckCircle2, 
+  AlertTriangle,
+  Activity
+} from 'lucide-react';
 
 export default function VehicleManagementPage() {
+  const { showSuccess, showError } = useToast();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State with both property casings to guarantee backend compatibility
+  // View Mode: 'grid' or 'table'
+  const [viewMode, setViewMode] = useState('grid');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Map Modal State
+  const [mapModal, setMapModal] = useState({ open: false, lat: 8.3114, lng: 80.4037, title: '' });
+
+  // Form State with both property casings for 100% backend compatibility
   const [form, setForm] = useState({
     vehicle_type: 'COMBINE_HARVESTER',
     vehicleType: 'COMBINE_HARVESTER',
@@ -30,9 +56,10 @@ export default function VehicleManagementPage() {
   const loadVehicles = async () => {
     try {
       const res = await api.core.getAllVehicles();
-      setVehicles(res.data);
+      setVehicles(res.data || []);
     } catch (err) {
       console.error("Failed to load vehicles", err);
+      showError("Could not sync vehicles from Core Service (Port 8080)");
     } finally {
       setLoading(false);
     }
@@ -83,92 +110,243 @@ export default function VehicleManagementPage() {
     try {
       if (isEditMode) {
         await api.core.updateVehicle(form.vehicle_id, form);
-        alert('Vehicle updated successfully!');
+        showSuccess(`🚜 Vehicle #${form.vehicle_id} updated successfully!`);
       } else {
         await api.core.createVehicle(form);
-        alert('New vehicle registered successfully!');
+        showSuccess('🚜 New agricultural vehicle registered successfully!');
       }
       setShowModal(false);
       await loadVehicles();
     } catch (err) {
-      alert('Error saving vehicle: ' + (err.response?.data?.message || err.message));
+      showError('Error saving vehicle: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const openMap = (lat, lng, type, id) => {
+    setMapModal({
+      open: true,
+      lat: lat !== undefined ? lat : 8.3114,
+      lng: lng !== undefined ? lng : 80.4037,
+      title: `Vehicle #${id} - ${type.replace('_', ' ')}`
+    });
+  };
+
+  const filteredVehicles = vehicles.filter((v) => {
+    const type = (v.vehicleType || v.vehicle_type || '').toUpperCase();
+    const id = (v.vehicleId || v.vehicle_id || '').toString();
+    const status = (v.availabilityStatus || v.availability_status || '').toUpperCase();
+    
+    const matchesSearch = type.includes(searchTerm.toUpperCase()) || id.includes(searchTerm);
+    const matchesFilter = statusFilter === 'ALL' || status === statusFilter;
+    return matchesSearch && matchesFilter;
+  });
+
   return (
-    <div className="relative min-h-screen bg-slate-50/50 pb-20 selection:bg-emerald-100">
-      {/* Decorative Background Mesh */}
+    <div className="relative min-h-screen pb-20 space-y-8 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      
+      {/* Ambient background glow */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -right-[10%] w-[50%] h-[50%] rounded-full bg-emerald-400/10 blur-[120px]" />
-        <div className="absolute top-[20%] -left-[10%] w-[40%] h-[40%] rounded-full bg-slate-400/10 blur-[100px]" />
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[140px]" />
       </div>
 
-      <div className="relative z-10 space-y-8 max-w-[1400px] mx-auto pt-8 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 space-y-8">
         
         {/* Advanced Hero Banner */}
-        <div className="relative overflow-hidden rounded-3xl bg-slate-900 shadow-2xl shadow-slate-900/20 border border-slate-800">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-950/40 via-slate-900 to-black opacity-80" />
+        <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8 sm:p-10">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-950/60 via-slate-900 to-black opacity-90" />
           
-          <div className="relative p-8 sm:p-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+          <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-widest uppercase mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold tracking-widest uppercase mb-4">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                 </span>
-                Port 8080 • Core Domain
+                Port 8080 • Core Service
               </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
-                Machinery Fleet <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">Management</span>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
+                Agricultural Fleet <span className="gradient-text-cyan">Roster Management</span>
               </h1>
-              <p className="text-slate-400 text-sm mt-3 max-w-xl leading-relaxed">
-                Register new agricultural vehicles, update locations, and manage real-time operational availability statuses.
+              <p className="text-slate-300 text-sm mt-3 max-w-xl leading-relaxed">
+                Register harvesters, update real-time GPS telemetry, and manage equipment operational statuses.
               </p>
             </div>
             
             <button 
               onClick={handleOpenNew}
-              className="group relative inline-flex items-center justify-center w-full lg:w-auto px-6 py-3.5 text-sm font-bold text-slate-950 bg-emerald-400 rounded-2xl overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_40px_8px_rgba(52,211,153,0.3)]"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-2xl shadow-xl shadow-blue-500/20 transition-all hover:scale-105"
             >
-              <span className="absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-30 bg-gradient-to-b from-transparent via-transparent to-black" />
-              <span className="relative flex items-center gap-2">
-                + Register New Vehicle
-              </span>
+              <Plus className="w-5 h-5" />
+              <span>Register New Vehicle</span>
             </button>
           </div>
         </div>
 
-        {/* Vehicle Data Table */}
-        <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-slate-200/60 shadow-xl shadow-slate-200/30">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-slate-800 tracking-tight">Active Fleet Roster</h2>
-            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-              Total Units: {vehicles.length}
+        {/* Filter Controls & Search */}
+        <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4">
+          
+          {/* Search Input */}
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by ID or type..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all"
+            />
+          </div>
+
+          <div className="flex items-center justify-between w-full sm:w-auto gap-3">
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              <Filter className="w-4 h-4 text-slate-400 shrink-0 mr-1" />
+              {['ALL', 'AVAILABLE', 'IN_USE', 'MAINTENANCE'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                    statusFilter === status
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {status.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-blue-500 shadow-sm' : 'text-slate-400'}`}
+                title="Grid View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-blue-500 shadow-sm' : 'text-slate-400'}`}
+                title="Table View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Vehicle Content Display */}
+        <div className="glass-panel p-6 sm:p-8 rounded-3xl space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <Tractor className="w-5 h-5 text-blue-500" />
+              Active Machinery Roster
+            </h2>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+              Total Units: {filteredVehicles.length}
             </span>
           </div>
-          
+
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-400 space-y-3">
-              <div className="w-8 h-8 border-4 border-slate-200 border-t-emerald-500 rounded-full animate-spin"></div>
-              <p className="text-sm font-medium animate-pulse">Syncing fleet data from Port 8080...</p>
+            <div className="flex flex-col items-center justify-center py-16 text-slate-400 space-y-3">
+              <div className="w-8 h-8 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
+              <p className="text-xs font-mono">Syncing fleet telemetry from Port 8080...</p>
+            </div>
+          ) : filteredVehicles.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 space-y-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+              <Tractor className="w-10 h-10 mx-auto text-slate-500 opacity-40" />
+              <p className="text-sm font-semibold">No machinery registered</p>
+              <p className="text-xs text-slate-500">Register your first vehicle using the button above.</p>
+            </div>
+          ) : viewMode === 'grid' ? (
+            /* Grid View */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredVehicles.map((v) => {
+                const id = v.vehicleId || v.vehicle_id;
+                const type = v.vehicleType || v.vehicle_type || 'COMBINE_HARVESTER';
+                const lat = v.currentLat !== undefined ? v.currentLat : v.current_lat;
+                const lng = v.currentLng !== undefined ? v.currentLng : v.current_lng;
+                const status = v.availabilityStatus || v.availability_status || 'AVAILABLE';
+                const rating = v.rating || 5.0;
+
+                return (
+                  <div 
+                    key={id} 
+                    className="glass-card p-5 rounded-2xl flex flex-col justify-between space-y-4 border border-slate-200 dark:border-slate-800 relative group"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <span className="text-xs font-mono font-bold text-blue-500 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/20">
+                          Unit #{id}
+                        </span>
+
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
+                          status === 'AVAILABLE'
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                            : status === 'MAINTENANCE'
+                            ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                            : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30'
+                        }`}>
+                          <CheckCircle2 className="w-3 h-3" />
+                          {status.replace('_', ' ')}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          🚜 {type.replace('_', ' ')}
+                        </h3>
+                        
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex items-center text-amber-400 gap-1 text-xs font-bold bg-amber-400/10 px-2.5 py-0.5 rounded-md border border-amber-400/20">
+                            <Star className="w-3.5 h-3.5 fill-amber-400" />
+                            {rating} / 5.0
+                          </div>
+                          <span className="text-xs text-slate-400">Operator Rating</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                      <button
+                        onClick={() => openMap(lat, lng, type, id)}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-400 bg-slate-100 dark:bg-slate-800/80 hover:bg-blue-500/10 px-3 py-1.5 rounded-xl transition-colors border border-slate-200 dark:border-slate-700/60"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-blue-500" />
+                        <span>GPS Map</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenEdit(v)}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-white bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl hover:bg-slate-900 transition-colors"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white/50">
-              <table className="w-full text-left border-collapse">
+            /* Table View */
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/50">
-                    <th className="py-4 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">ID</th>
-                    <th className="py-4 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Machinery Type</th>
-                    <th className="py-4 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">GPS Location</th>
-                    <th className="py-4 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="py-4 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Rating</th>
-                    <th className="py-4 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase font-bold">
+                    <th className="py-3.5 px-4">ID</th>
+                    <th className="py-3.5 px-4">Machinery Type</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4">Rating</th>
+                    <th className="py-3.5 px-4">GPS Location</th>
+                    <th className="py-3.5 px-4 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {vehicles.map((v) => {
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  {filteredVehicles.map((v) => {
                     const id = v.vehicleId || v.vehicle_id;
                     const type = v.vehicleType || v.vehicle_type;
                     const lat = v.currentLat !== undefined ? v.currentLat : v.current_lat;
@@ -177,71 +355,63 @@ export default function VehicleManagementPage() {
                     const rating = v.rating;
 
                     return (
-                      <tr key={id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-4 px-5 font-bold text-slate-700">#{id}</td>
-                        <td className="py-4 px-5 font-semibold text-slate-900">{type}</td>
-                        <td className="py-4 px-5 font-mono text-xs">
-                          <a 
-                            href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-emerald-600 hover:text-emerald-800 underline flex items-center gap-1 font-semibold"
-                          >
-                            <span>📍 {lat}, {lng}</span>
-                          </a>
-                        </td>
-                        <td className="py-4 px-5">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold ${
-                            status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800' : 
-                            status === 'MAINTENANCE' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                      <tr key={id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-bold text-blue-500">#{id}</td>
+                        <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-slate-200">{type}</td>
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                            status === 'AVAILABLE' ? 'bg-emerald-500/10 text-emerald-500' :
+                            status === 'MAINTENANCE' ? 'bg-rose-500/10 text-rose-500' : 'bg-blue-500/10 text-blue-500'
                           }`}>
                             {status}
                           </span>
                         </td>
-                        <td className="py-4 px-5 text-amber-500 font-bold">★ {rating}</td>
-                        <td className="py-4 px-5 text-right">
-                          <button 
-                            onClick={() => handleOpenEdit(v)}
-                            className="bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700 font-semibold px-3.5 py-1.5 rounded-xl text-xs transition-colors shadow-sm"
+                        <td className="py-3.5 px-4 text-amber-400 font-bold">★ {rating}</td>
+                        <td className="py-3.5 px-4 font-mono">
+                          <button
+                            onClick={() => openMap(lat, lng, type, id)}
+                            className="text-blue-400 hover:underline inline-flex items-center gap-1"
                           >
-                            Edit Unit
+                            <MapPin className="w-3 h-3" />
+                            {lat}, {lng}
+                          </button>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => handleOpenEdit(v)}
+                            className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold"
+                          >
+                            Edit
                           </button>
                         </td>
                       </tr>
                     );
                   })}
-                  {vehicles.length === 0 && (
-                    <tr>
-                      <td colSpan="6" className="py-12 text-center text-slate-500">
-                        No vehicles found in the fleet database. Register your first unit above!
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
           )}
         </div>
 
-        {/* Insert / Update Modal Form */}
+        {/* Modal Form for Create / Edit */}
         {showModal && (
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-8 shadow-2xl space-y-6 border border-slate-100">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold text-slate-900 tracking-tight">
-                  {isEditMode ? `Update Vehicle #${form.vehicle_id}` : 'Register New Vehicle'}
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-8 shadow-2xl space-y-6 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white">
+              <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
+                <h3 className="text-xl font-extrabold tracking-tight">
+                  {isEditMode ? `Update Vehicle #${form.vehicle_id}` : 'Register New Machinery'}
                 </h3>
                 <button 
                   onClick={() => setShowModal(false)} 
-                  className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors font-bold"
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
               
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Machinery Type</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Machinery Type</label>
                   <select 
                     value={form.vehicle_type} 
                     onChange={e => setForm({
@@ -249,7 +419,7 @@ export default function VehicleManagementPage() {
                       vehicle_type: e.target.value,
                       vehicleType: e.target.value
                     })}
-                    className="w-full bg-slate-50/50 border border-slate-200/80 p-3.5 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 p-3.5 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   >
                     <option value="COMBINE_HARVESTER">Combine Harvester</option>
                     <option value="TRACTOR">Heavy Tractor</option>
@@ -259,7 +429,7 @@ export default function VehicleManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Availability Status</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Availability Status</label>
                   <select 
                     value={form.availability_status} 
                     onChange={e => setForm({
@@ -267,7 +437,7 @@ export default function VehicleManagementPage() {
                       availability_status: e.target.value,
                       availabilityStatus: e.target.value
                     })}
-                    className="w-full bg-slate-50/50 border border-slate-200/80 p-3.5 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 p-3.5 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   >
                     <option value="AVAILABLE">Available</option>
                     <option value="IN_USE">In Use (Dispatched)</option>
@@ -277,7 +447,7 @@ export default function VehicleManagementPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Current Latitude</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Latitude</label>
                     <input 
                       type="number" step="0.0001"
                       value={form.current_lat} 
@@ -285,11 +455,11 @@ export default function VehicleManagementPage() {
                         const val = parseFloat(e.target.value);
                         setForm({...form, current_lat: val, currentLat: val});
                       }}
-                      className="w-full bg-slate-50/50 border border-slate-200/80 p-3.5 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                      className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 p-3 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Current Longitude</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Longitude</label>
                     <input 
                       type="number" step="0.0001"
                       value={form.current_lng} 
@@ -297,33 +467,33 @@ export default function VehicleManagementPage() {
                         const val = parseFloat(e.target.value);
                         setForm({...form, current_lng: val, currentLng: val});
                       }}
-                      className="w-full bg-slate-50/50 border border-slate-200/80 p-3.5 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                      className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 p-3 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Operator Rating (1.0 - 5.0)</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Operator Rating (1.0 - 5.0)</label>
                   <input 
                     type="number" step="0.1" min="1" max="5"
                     value={form.rating} 
                     onChange={e => setForm({...form, rating: parseFloat(e.target.value)})}
-                    className="w-full bg-slate-50/50 border border-slate-200/80 p-3.5 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 p-3.5 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   />
                 </div>
 
-                <div className="pt-3 flex gap-3">
+                <div className="pt-4 flex gap-3">
                   <button 
                     type="button" 
                     onClick={() => setShowModal(false)}
-                    className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
+                    className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit" 
                     disabled={isSubmitting}
-                    className="flex-1 bg-slate-900 text-white py-3 rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg disabled:opacity-50"
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
                   >
                     {isSubmitting ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Register Vehicle')}
                   </button>
@@ -333,7 +503,16 @@ export default function VehicleManagementPage() {
           </div>
         )}
 
+        {/* Map View Modal */}
+        <MapViewModal
+          isOpen={mapModal.open}
+          onClose={() => setMapModal({ ...mapModal, open: false })}
+          lat={mapModal.lat}
+          lng={mapModal.lng}
+          title={mapModal.title}
+        />
+
       </div>
     </div>
   );
-}
+}
