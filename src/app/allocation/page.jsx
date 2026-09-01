@@ -246,8 +246,8 @@ export default function AllocationPage() {
   ];
 
   const fleetData = [
-    { name: 'Available / In-Use', value: availableVehicles.length, color: '#34d399' }, 
-    { name: 'Maintenance', value: inUseVehicles.length, color: '#f43f5e' }, 
+    { name: 'Available', value: availableVehicles.length, color: '#34d399' }, 
+    { name: 'In-Use', value: inUseVehicles.length, color: '#f43f5e' }, 
   ];
 
   const CustomTooltip = ({ active, payload }) => {
