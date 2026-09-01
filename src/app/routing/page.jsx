@@ -5,15 +5,11 @@ import { api } from '@/services/api';
 import { useToast } from '@/context/ToastContext';
 import { 
   Navigation, 
-  MapPin, 
   Zap, 
-  Clock, 
   Route as RouteIcon, 
   History, 
   Play, 
-  CheckCircle2, 
-  Cpu,
-  ArrowRight
+  Cpu
 } from 'lucide-react';
 
 export default function RoutingPage() {
@@ -37,6 +33,9 @@ export default function RoutingPage() {
         api.routing.getRoadEdges(),
         api.routing.getRouteCache?.() || Promise.resolve({ data: [] })
       ]);
+      
+      console.log('📡 Nodes fetched from DB:', nodesRes.data); // Check your F12 Browser Console to see the exact keys!
+      
       setNodes(nodesRes.data || []);
       setEdges(edgesRes.data || []);
       setCachedRoutes(cacheRes.data || []);
@@ -46,9 +45,11 @@ export default function RoutingPage() {
     }
   };
 
+  // ✅ Robust node name resolver supporting camelCase and snake_case API returns
   const getNodeName = (nodeId) => {
-    const found = nodes.find(n => n.nodeId === nodeId);
-    return found ? found.nodeName : `Node ID: ${nodeId}`;
+    const found = nodes.find(n => n.nodeId === nodeId || n.node_id === nodeId);
+    if (!found) return `Node ID: ${nodeId}`;
+    return found.nodeName || found.node_name || `Node ID: ${nodeId}`;
   };
 
   const handleCalculateRoute = async (algorithm) => {
@@ -131,11 +132,15 @@ export default function RoutingPage() {
                 onChange={e => setOrigin(Number(e.target.value))}
                 className="w-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 p-3.5 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none transition-all"
               >
-                {nodes.map(n => (
-                  <option key={n.nodeId} value={n.nodeId}>
-                    {n.nodeName} {n.isDepot ? '📦 [Depot]' : n.isFarmGate ? '🌾 [Farm Gate]' : '📍'}
-                  </option>
-                ))}
+                {nodes.map(n => {
+                  const id = n.nodeId ?? n.node_id;
+                  const name = n.nodeName || n.node_name || `Node ID: ${id}`;
+                  return (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -148,11 +153,15 @@ export default function RoutingPage() {
                 onChange={e => setDest(Number(e.target.value))}
                 className="w-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 p-3.5 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none transition-all"
               >
-                {nodes.map(n => (
-                  <option key={n.nodeId} value={n.nodeId}>
-                    {n.nodeName} {n.isDepot ? '📦 [Depot]' : n.isFarmGate ? '🌾 [Farm Gate]' : '📍'}
-                  </option>
-                ))}
+                {nodes.map(n => {
+                  const id = n.nodeId ?? n.node_id;
+                  const name = n.nodeName || n.node_name || `Node ID: ${id}`;
+                  return (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -224,7 +233,7 @@ export default function RoutingPage() {
                     
                     <div className="space-y-2.5 border-l-2 border-sky-500/80 pl-4 ml-2">
                       {routeResult.pathNodeSequence?.map((nodeId, idx) => {
-                        const matchedNode = nodes.find(n => n.nodeId === nodeId);
+                        const matchedNode = nodes.find(n => n.nodeId === nodeId || n.node_id === nodeId);
                         return (
                           <div 
                             key={idx} 
@@ -236,10 +245,10 @@ export default function RoutingPage() {
                               </span>
                               <div>
                                 <div className="text-sm font-bold text-slate-900 dark:text-white">
-                                  {matchedNode ? matchedNode.nodeName : `Node ID: ${nodeId}`}
+                                  {matchedNode ? (matchedNode.nodeName || matchedNode.node_name) : `Node ID: ${nodeId}`}
                                 </div>
-                                <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                                  {matchedNode?.isDepot ? 'Machinery Depot Hub' : matchedNode?.isFarmGate ? 'Target Farm Plot Gate' : 'Junction Waypoint'}
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold mt-0.5">
+                                  {matchedNode?.isDepot || matchedNode?.is_depot ? 'MACHINERY DEPOT' : matchedNode?.isFarmGate || matchedNode?.is_farm_gate ? 'TARGET FARM PLOT' : 'WAYPOINT JUNCTION'}
                                 </div>
                               </div>
                             </div>
@@ -295,23 +304,23 @@ export default function RoutingPage() {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
                 {cachedRoutes.length > 0 ? (
                   cachedRoutes.map(row => (
-                    <tr key={row.routeId} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="p-3.5 font-mono font-bold text-sky-500">#{row.routeId}</td>
+                    <tr key={row.routeId || row.route_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="p-3.5 font-mono font-bold text-sky-500">#{row.routeId || row.route_id}</td>
                       <td className="p-3.5">
                         <span className={`px-2.5 py-1 rounded-md font-extrabold text-[10px] uppercase border ${
-                          row.algorithmUsed === 'ASTAR' 
+                          (row.algorithmUsed || row.algorithm_used) === 'ASTAR' 
                             ? 'bg-sky-500/10 text-sky-500 border-sky-500/20' 
                             : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
                         }`}>
-                          {row.algorithmUsed}
+                          {row.algorithmUsed || row.algorithm_used}
                         </span>
                       </td>
                       <td className="p-3.5 text-slate-800 dark:text-slate-200">
-                        {getNodeName(row.originNode)} → {getNodeName(row.destinationNode)}
+                        {getNodeName(row.originNode || row.origin_node)} → {getNodeName(row.destinationNode || row.destination_node)}
                       </td>
-                      <td className="p-3.5 font-bold text-slate-900 dark:text-white">{row.totalDistanceKm} km</td>
-                      <td className="p-3.5 text-slate-500">{row.nodesVisitedCount} vertices</td>
-                      <td className="p-3.5 text-slate-400 font-mono text-[11px]">{row.computedAt || 'Just now'}</td>
+                      <td className="p-3.5 font-bold text-slate-900 dark:text-white">{row.totalDistanceKm || row.total_distance_km} km</td>
+                      <td className="p-3.5 text-slate-500">{row.nodesVisitedCount || row.nodes_visited_count} vertices</td>
+                      <td className="p-3.5 text-slate-400 font-mono text-[11px]">{row.computedAt || row.computed_at || 'Just now'}</td>
                     </tr>
                   ))
                 ) : (
