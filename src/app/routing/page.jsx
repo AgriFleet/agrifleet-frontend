@@ -26,6 +26,20 @@ export default function RoutingPage() {
   const [loading, setLoading] = useState(false);
   const [cachedRoutes, setCachedRoutes] = useState([]);
 
+  // Geographical coordinates & metadata for the 10 agricultural nodes
+  const NODE_METADATA = {
+    1: { name: 'Main Machinery Depot Alpha', type: 'DEPOT', icon: '🏢', lat: 8.3114, lng: 80.4037 },
+    2: { name: 'Junction Medawachchiya Cross', type: 'JUNCTION', icon: '📍', lat: 8.3245, lng: 80.4120 },
+    3: { name: 'Canal Bridge Crossing Alpha', type: 'BRIDGE', icon: '🌉', lat: 8.3380, lng: 80.4280 },
+    4: { name: 'Farm Gate Plot 1 (Kamal Farm)', type: 'FARM', icon: '🌾', lat: 8.3350, lng: 80.4450 },
+    5: { name: 'Farm Gate Plot 2 (Sector B)', type: 'FARM', icon: '🌾', lat: 8.3620, lng: 80.4120 },
+    6: { name: 'South Agricultural Bypass', type: 'JUNCTION', icon: '📍', lat: 8.2950, lng: 80.3950 },
+    7: { name: 'Farm Gate Plot 3 (Sector C)', type: 'FARM', icon: '🌾', lat: 8.2980, lng: 80.3620 },
+    8: { name: 'Gravel Road Intersect South', type: 'JUNCTION', icon: '📍', lat: 8.2750, lng: 80.3900 },
+    9: { name: 'Farm Gate Plot 4 (Sector D)', type: 'FARM', icon: '🌾', lat: 8.2750, lng: 80.4180 },
+    10: { name: 'Sub-Depot Beta (East Sector)', type: 'DEPOT', icon: '🏢', lat: 8.3650, lng: 80.4500 }
+  };
+
   useEffect(() => {
     fetchNetworkData();
   }, []);
@@ -47,8 +61,7 @@ export default function RoutingPage() {
   };
 
   const getNodeName = (nodeId) => {
-    const found = nodes.find(n => n.nodeId === nodeId);
-    return found ? found.nodeName : `Node ID: ${nodeId}`;
+    return NODE_METADATA[nodeId] ? NODE_METADATA[nodeId].name : `Node ID: ${nodeId}`;
   };
 
   const handleCalculateRoute = async (algorithm) => {
@@ -133,7 +146,7 @@ export default function RoutingPage() {
               >
                 {nodes.map(n => (
                   <option key={n.nodeId} value={n.nodeId}>
-                    {n.nodeName} {n.isDepot ? '📦 [Depot]' : n.isFarmGate ? '🌾 [Farm Gate]' : '📍'}
+                    {NODE_METADATA[n.nodeId]?.name || `Node ${n.nodeId}`} {NODE_METADATA[n.nodeId]?.icon || '📍'}
                   </option>
                 ))}
               </select>
@@ -150,7 +163,7 @@ export default function RoutingPage() {
               >
                 {nodes.map(n => (
                   <option key={n.nodeId} value={n.nodeId}>
-                    {n.nodeName} {n.isDepot ? '📦 [Depot]' : n.isFarmGate ? '🌾 [Farm Gate]' : '📍'}
+                    {NODE_METADATA[n.nodeId]?.name || `Node ${n.nodeId}`} {NODE_METADATA[n.nodeId]?.icon || '📍'}
                   </option>
                 ))}
               </select>
@@ -224,7 +237,6 @@ export default function RoutingPage() {
                     
                     <div className="space-y-2.5 border-l-2 border-sky-500/80 pl-4 ml-2">
                       {routeResult.pathNodeSequence?.map((nodeId, idx) => {
-                        const matchedNode = nodes.find(n => n.nodeId === nodeId);
                         return (
                           <div 
                             key={idx} 
@@ -236,10 +248,10 @@ export default function RoutingPage() {
                               </span>
                               <div>
                                 <div className="text-sm font-bold text-slate-900 dark:text-white">
-                                  {matchedNode ? matchedNode.nodeName : `Node ID: ${nodeId}`}
+                                  {getNodeName(nodeId)}
                                 </div>
-                                <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                                  {matchedNode?.isDepot ? 'Machinery Depot Hub' : matchedNode?.isFarmGate ? 'Target Farm Plot Gate' : 'Junction Waypoint'}
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold mt-0.5">
+                                  {NODE_METADATA[nodeId]?.type || 'WAYPOINT'}
                                 </div>
                               </div>
                             </div>
@@ -327,4 +339,4 @@ export default function RoutingPage() {
       </div>
     </div>
   );
-}
+}
