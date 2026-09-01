@@ -2,22 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/services/api';
-import { useToast } from '@/context/ToastContext';
 import { 
   Layers, 
   Zap, 
-  CheckCircle2, 
   Tractor, 
   Sprout, 
   Clock, 
-  Cpu, 
   ArrowRight, 
   RefreshCw,
   Send
 } from 'lucide-react';
 
 export default function AllocationPage() {
-  const { showSuccess, showError } = useToast();
   const [batches, setBatches] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -48,7 +44,6 @@ export default function AllocationPage() {
       
     } catch (err) {
       console.error('Failed to fetch allocation dashboard data', err);
-      showError('Failed to sync allocation data from Port 8082');
     } finally {
       setLoading(false);
     }
@@ -62,7 +57,6 @@ export default function AllocationPage() {
       setActiveAssignments(res.data || []);
     } catch (err) {
       console.error('Failed to load assignments', err);
-      showError('Could not load batch assignments');
     }
   };
 
@@ -73,9 +67,8 @@ export default function AllocationPage() {
       const res = await api.allocation.runScheduledBatch({ batchType: 'SCHEDULED_BATCH' });
       await fetchDashboardData();
       await loadAssignmentsForBatch(res.data);
-      showSuccess('⚡ Global Hungarian batch allocation completed!');
     } catch (err) {
-      showError('Batch execution failed: ' + (err.response?.data?.message || err.message));
+      alert('Batch execution failed: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsRunning(false);
     }
@@ -90,65 +83,86 @@ export default function AllocationPage() {
       const res = await api.allocation.runRealtimeGreedy(Number(bookingIdInput));
       await fetchDashboardData();
       await loadAssignmentsForBatch(res.data);
-      showSuccess(`⚡ Priority greedy allocation dispatched for Booking #${bookingIdInput}!`);
       setBookingIdInput('');
     } catch (err) {
-      showError('Greedy allocation failed: ' + (err.response?.data?.message || err.message));
+      alert('Greedy allocation failed: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsRunning(false);
     }
   };
 
-  const handleConfirmDispatch = async (assignmentId, bookingId) => {
+  const handleConfirmDispatch = async (assignmentId, bookingId, vehicleId) => {
     setProcessingId(assignmentId);
     try {
+      // 1. Confirm assignment status in Task 2 (Port 8082)
       await api.allocation.confirmAssignment(assignmentId);
+      
+      // 2. Update booking status to 'ALLOCATED' in Core Service (Port 8080)
       await api.core.updateBookingStatus(bookingId, 'ALLOCATED');
+
+      // 3. Update vehicle availability status to 'IN_USE' in Core Service (Port 8080)
+      const vehicleToUpdate = vehicles.find(v => (v.vehicleId || v.vehicle_id) === vehicleId);
+      if (vehicleToUpdate) {
+        const payload = { 
+          ...vehicleToUpdate, 
+          availability_status: 'IN_USE', 
+          availabilityStatus: 'IN_USE' 
+        };
+        await api.core.updateVehicle(vehicleId, payload);
+      }
       
       await fetchDashboardData();
-      await loadAssignmentsForBatch(activeBatch);
-      showSuccess(`🚜 Vehicle dispatched successfully for Booking #${bookingId}!`);
+      if (activeBatch) {
+        await loadAssignmentsForBatch(activeBatch);
+      }
+      alert(`🚜 Vehicle successfully dispatched! `);
     } catch (err) {
-      showError('Dispatch failed: ' + (err.response?.data?.message || err.message));
+      alert('Dispatch failed: ' + (err.response?.data?.message || err.message));
     } finally {
       setProcessingId(null);
     }
   };
 
+  // Filter bookings to exclude already allocated or dispatched requests from the greedy drop-down
+  const availableBookingsForGreedy = bookings.filter(b => {
+    const status = (b.bookingStatus || b.booking_status || '').toUpperCase();
+    return status !== 'ALLOCATED' && status !== 'DISPATCHED';
+  });
+
   return (
-    <div className="relative min-h-screen pb-20 space-y-8 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+    <div className="relative min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-emerald-500/30">
       
       {/* Background Glow */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[140px]" />
+        <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[140px]" />
       </div>
 
-      <div className="relative z-10 space-y-8">
+      <div className="relative z-10 space-y-8 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         
-        {/* Advanced Hero Banner */}
+        {/* Hero Banner */}
         <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8 sm:p-10 text-white">
-          <div className="absolute inset-0 bg-gradient-to-r from-teal-950/60 via-slate-900 to-black opacity-90" />
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/30 via-slate-900 to-black opacity-90" />
           
           <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-bold tracking-widest uppercase mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-widest uppercase mb-4">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
                 Task 2 • Port 8082 Engine
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
-                Resource Allocation & <span className="gradient-text-emerald">Dispatch</span>
+                Resource Allocation & <span className="text-emerald-400">Dispatch</span>
               </h1>
-              <p className="text-slate-300 text-sm mt-3 max-w-xl leading-relaxed">
+              <p className="text-slate-400 text-sm mt-3 max-w-xl leading-relaxed">
                 Hungarian algorithm batch scheduling and real-time greedy priority assignment for tractors and harvesters.
               </p>
             </div>
             
             <div className="bg-slate-800/80 px-5 py-3 rounded-2xl border border-slate-700/80 backdrop-blur-sm text-right">
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Fleet & Booking Context</div>
-              <div className="text-sm font-extrabold text-teal-400">
+              <div className="text-sm font-extrabold text-emerald-400">
                 {vehicles.length} Vehicles | {bookings.length} Demands
               </div>
             </div>
@@ -160,15 +174,15 @@ export default function AllocationPage() {
           {/* Controls Column */}
           <div className="space-y-6">
             
-            {/* Hungarian Batch Trigger */}
-            <div className="glass-panel p-6 rounded-3xl space-y-4">
+            {/* Hungarian Batch Trigger Card */}
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4 shadow-xl">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-teal-500/10 text-teal-400 rounded-xl border border-teal-500/20">
+                <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
                   <Layers className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">Global Batch Matching</h2>
-                  <p className="text-xs text-slate-500">O(N³) Hungarian Exact Algorithm</p>
+                  <h2 className="text-base font-extrabold text-white tracking-tight">Global Batch Matching</h2>
+                  <p className="text-xs text-slate-400">O(N³) Hungarian Exact Algorithm</p>
                 </div>
               </div>
 
@@ -182,34 +196,34 @@ export default function AllocationPage() {
               </button>
             </div>
 
-            {/* Greedy Real-Time Trigger */}
-            <div className="glass-panel p-6 rounded-3xl space-y-4">
+            {/* Greedy Real-Time Trigger Card */}
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4 shadow-xl">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-sky-500/10 text-sky-400 rounded-xl border border-sky-500/20">
                   <Send className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">Priority Real-Time Dispatch</h2>
-                  <p className="text-xs text-slate-500">Greedy Min-Heap Assignment</p>
+                  <h2 className="text-base font-extrabold text-white tracking-tight">Priority Real-Time Dispatch</h2>
+                  <p className="text-xs text-slate-400">Greedy Min-Heap Assignment</p>
                 </div>
               </div>
 
               <form onSubmit={handleRunGreedy} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                     Target Booking Request
                   </label>
                   <select 
                     value={bookingIdInput}
                     onChange={e => setBookingIdInput(e.target.value)}
-                    className="w-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 p-3.5 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none transition-all"
+                    className="w-full bg-slate-950 border border-slate-800 p-3.5 rounded-xl text-xs font-semibold text-white focus:ring-2 focus:ring-sky-500 outline-none transition-all"
                   >
-                    <option value="" disabled>Select an urgent booking...</option>
-                    {bookings.map(b => {
+                    <option value="" disabled className="bg-slate-900 text-slate-400">Select an active pending booking...</option>
+                    {availableBookingsForGreedy.map(b => {
                       const id = b.bookingId || b.booking_id;
                       const status = b.bookingStatus || b.booking_status;
                       return (
-                        <option key={id} value={id}>
+                        <option key={id} value={id} className="bg-slate-900 text-white">
                           Booking #{id} - {b.cropType || b.crop_type} ({b.acreage} acres) [{status}]
                         </option>
                       );
@@ -220,7 +234,7 @@ export default function AllocationPage() {
                 <button 
                   type="submit" 
                   disabled={isRunning || !bookingIdInput}
-                  className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white py-3.5 rounded-2xl text-xs font-bold transition-all shadow-md disabled:opacity-50"
+                  className="w-full inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 py-3.5 rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
                 >
                   <span>{isRunning && bookingIdInput ? 'Dispatching...' : 'Dispatch Nearest Vehicle'}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -231,17 +245,17 @@ export default function AllocationPage() {
 
           {/* Results Column */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="glass-panel p-6 sm:p-8 rounded-3xl min-h-[420px] flex flex-col justify-between space-y-6">
+            <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl min-h-[420px] flex flex-col justify-between space-y-6 shadow-xl">
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-emerald-500" />
+                <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-emerald-400" />
                   Allocation Output Visualizer
                 </h2>
                 {activeBatch && (
                   <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${
                     (activeBatch.batchType || activeBatch.batch_type) === 'SCHEDULED_BATCH' 
-                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' 
-                      : 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
+                      : 'bg-sky-500/15 text-sky-400 border-sky-500/30'
                   }`}>
                     {(activeBatch.batchType || activeBatch.batch_type).replace('_', ' ')}
                   </span>
@@ -250,31 +264,31 @@ export default function AllocationPage() {
 
               {activeBatch ? (
                 <div className="space-y-6 flex-1">
-                  {/* Metrics */}
+                  {/* Metrics Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Matrix Dim.</span>
-                      <span className="text-xl font-black text-slate-900 dark:text-white mt-1 block">
+                      <span className="text-xl font-black text-white mt-1 block">
                         {activeBatch.matrixDimensions || activeBatch.matrix_dimensions}
                       </span>
                     </div>
-                    <div className="glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Network Cost</span>
-                      <span className="text-xl font-black text-emerald-500 mt-1 block">
+                      <span className="text-xl font-black text-emerald-400 mt-1 block">
                         {Number(activeBatch.totalNetworkCost || activeBatch.total_network_cost).toFixed(2)} <span className="text-xs font-normal text-slate-400">km</span>
                       </span>
                     </div>
-                    <div className="glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Compute Duration</span>
-                      <span className="text-xl font-black text-sky-500 mt-1 block">
+                      <span className="text-xl font-black text-sky-400 mt-1 block">
                         {activeBatch.executionTimeMs || activeBatch.execution_time_ms} <span className="text-xs font-normal text-slate-400">ms</span>
                       </span>
                     </div>
                   </div>
 
-                  {/* Assignments Cards */}
+                  {/* Assignments Pairings */}
                   <div>
-                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
                       Matched Machinery & Job Pairings
                     </h3>
 
@@ -294,51 +308,55 @@ export default function AllocationPage() {
                         return (
                           <div 
                             key={aId} 
-                            className={`glass-card p-4 rounded-2xl border ${isDispatched ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-slate-200 dark:border-slate-800'} relative flex flex-col justify-between space-y-4`}
+                            className={`p-4 rounded-2xl border ${
+                              isDispatched 
+                                ? 'border-emerald-500/40 bg-emerald-500/5' 
+                                : 'border-slate-800 bg-slate-950'
+                            } relative flex flex-col justify-between space-y-4 shadow-sm`}
                           >
                             <div className="space-y-3">
                               <div className="flex justify-between items-center">
                                 <span className="text-[11px] font-mono font-bold text-slate-400">Match #{aId}</span>
                                 <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase border ${
                                   isDispatched 
-                                    ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' 
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-700'
+                                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
+                                    : 'bg-slate-800 text-slate-300 border-slate-700'
                                 }`}>
                                   {status}
                                 </span>
                               </div>
 
-                              {/* Vehicle info */}
+                              {/* Vehicle Info */}
                               <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white">
                                   <Tractor className="w-5 h-5 text-emerald-400" />
                                 </div>
                                 <div>
                                   <div className="text-[10px] font-bold text-slate-400 uppercase">Assigned Machinery</div>
-                                  <div className="text-sm font-bold text-slate-900 dark:text-white">Vehicle #{vId}</div>
-                                  <div className="text-xs text-slate-500">
+                                  <div className="text-sm font-bold text-white">Vehicle #{vId}</div>
+                                  <div className="text-xs text-slate-400">
                                     {v ? `${(v.vehicleType || v.vehicle_type).replace('_', ' ')} • ⭐ ${v.rating}` : 'Equipment Data'}
                                   </div>
                                 </div>
                               </div>
 
-                              {/* Transit indicator */}
+                              {/* Transit Indicator */}
                               <div className="flex items-center gap-2 pl-3">
-                                <div className="w-0.5 h-5 bg-slate-300 dark:bg-slate-700" />
-                                <div className="text-[11px] font-mono text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 font-bold">
+                                <div className="w-0.5 h-5 bg-slate-800" />
+                                <div className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 font-bold">
                                   ↳ {Number(a.deadheadDistanceKm || a.deadhead_distance_km).toFixed(2)} km Transit
                                 </div>
                               </div>
 
-                              {/* Booking info */}
+                              {/* Booking Info */}
                               <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500">
+                                <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
                                   <Sprout className="w-5 h-5" />
                                 </div>
                                 <div>
                                   <div className="text-[10px] font-bold text-slate-400 uppercase">Target Field Request</div>
-                                  <div className="text-sm font-bold text-slate-900 dark:text-white">Booking #{bId}</div>
-                                  <div className="text-xs text-slate-500">
+                                  <div className="text-sm font-bold text-white">Booking #{bId}</div>
+                                  <div className="text-xs text-slate-400">
                                     {b ? `${b.cropType || b.crop_type} • ${b.acreage} Acres` : 'Field Data'}
                                   </div>
                                 </div>
@@ -347,7 +365,7 @@ export default function AllocationPage() {
 
                             {!isDispatched && (
                               <button
-                                onClick={() => handleConfirmDispatch(aId, bId)}
+                                onClick={() => handleConfirmDispatch(aId, bId, vId)}
                                 disabled={isProcessing}
                                 className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
                               >
@@ -361,12 +379,12 @@ export default function AllocationPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full flex-1 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50/50 dark:bg-slate-800/20">
-                  <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3 text-xl font-bold">
+                <div className="flex flex-col items-center justify-center h-full flex-1 text-center border-2 border-dashed border-slate-800 rounded-2xl p-6 bg-slate-950/40">
+                  <div className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 mb-3 text-xl font-bold">
                     ⚡
                   </div>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200">No Allocation Data Loaded</p>
-                  <p className="text-xs text-slate-500 max-w-sm mt-1">
+                  <p className="text-sm font-bold text-white">No Allocation Data Loaded</p>
+                  <p className="text-xs text-slate-400 max-w-sm mt-1">
                     Execute a global Hungarian batch or trigger a greedy dispatch from the left controls.
                   </p>
                 </div>
@@ -376,25 +394,25 @@ export default function AllocationPage() {
         </div>
 
         {/* Global Batches History Table */}
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl space-y-4">
+        <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl space-y-4 shadow-xl">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              <Clock className="w-5 h-5 text-emerald-500" />
+            <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+              <Clock className="w-5 h-5 text-emerald-400" />
               Allocation Batches History
             </h2>
             <button 
               onClick={fetchDashboardData} 
-              className="text-xs font-bold text-emerald-500 hover:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 transition-colors flex items-center gap-1"
+              className="text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 transition-colors flex items-center gap-1"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Refresh Logs</span>
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase font-bold border-b border-slate-200 dark:border-slate-800">
+                <tr className="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
                   <th className="p-3.5">Batch ID</th>
                   <th className="p-3.5">Algorithm</th>
                   <th className="p-3.5">Dimensions</th>
@@ -403,7 +421,7 @@ export default function AllocationPage() {
                   <th className="p-3.5 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+              <tbody className="divide-y divide-slate-800 font-medium">
                 {batches.map(b => {
                   const id = b.batchId || b.batch_id || b.id;
                   const type = b.batchType || b.batch_type;
@@ -413,19 +431,19 @@ export default function AllocationPage() {
                   const isActive = activeBatch && (activeBatch.batchId || activeBatch.batch_id || activeBatch.id) === id;
 
                   return (
-                    <tr key={id} className={`transition-colors ${isActive ? 'bg-emerald-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}`}>
-                      <td className="p-3.5 font-mono font-bold text-emerald-500">#{id}</td>
+                    <tr key={id} className={`transition-colors ${isActive ? 'bg-emerald-500/10' : 'hover:bg-slate-900/50'}`}>
+                      <td className="p-3.5 font-mono font-bold text-emerald-400">#{id}</td>
                       <td className="p-3.5">
                         <span className={`px-2.5 py-1 rounded-md font-extrabold text-[10px] uppercase border ${
                           type === 'SCHEDULED_BATCH' 
-                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
-                            : 'bg-sky-500/10 text-sky-500 border-sky-500/20'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                            : 'bg-sky-500/10 text-sky-400 border-sky-500/20'
                         }`}>
                           {type === 'SCHEDULED_BATCH' ? 'Hungarian (Exact)' : 'Greedy (Heuristic)'}
                         </span>
                       </td>
-                      <td className="p-3.5 font-mono">{dims}</td>
-                      <td className="p-3.5 font-bold text-slate-900 dark:text-white">{cost} km</td>
+                      <td className="p-3.5 font-mono text-slate-300">{dims}</td>
+                      <td className="p-3.5 font-bold text-white">{cost} km</td>
                       <td className="p-3.5 font-mono text-slate-400">{time} ms</td>
                       <td className="p-3.5 text-right">
                         <button 
@@ -433,7 +451,7 @@ export default function AllocationPage() {
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                             isActive 
                               ? 'bg-emerald-500 text-slate-950 shadow-md' 
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-white'
+                              : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
                           }`}
                         >
                           {isActive ? 'Viewing' : 'Inspect'}
@@ -450,4 +468,4 @@ export default function AllocationPage() {
       </div>
     </div>
   );
-}
+}
