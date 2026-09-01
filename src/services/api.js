@@ -83,11 +83,11 @@ export const api = {
   },
 
   // 5. TASK 5: TOUR & MULTI-JOB OPTIMIZATION (Port 8085)
+  selection: {
+    maximizeAcreageValue: (payload) => tourClient.post('/selection/maximize-acreage-value', payload),
+  },
   tour: {
-    generateDailyTour: (payload) => tourClient.post('/tours/optimize/tsp-ga', payload),
-    getDailyTours: () => tourClient.get('/tours'),
-    getGaExecutionLogs: () => tourClient.get('/tours/ga-logs'),
-    getFitnessConvergence: (gaRunId) => tourClient.get(`/tours/ga-logs/${gaRunId}/convergence`),
-    updateTourStatus: (tourId, status) => tourClient.put(`/tours/${tourId}/status?status=${status}`),
+    optimizeSequence: (payload) => tourClient.post('/tours/optimize-sequence', payload),
+    optimizeGeneticAlgorithm: (payload) => tourClient.post('/sequence/optimize-genetic-algorithm', payload),
   }
 };
