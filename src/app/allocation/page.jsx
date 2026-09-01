@@ -16,9 +16,11 @@ import {
   Compass,
   MapPin,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Activity
 } from 'lucide-react';
 import MapViewModal from '@/components/ui/MapViewModal';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 export default function AllocationPage() {
   const [batches, setBatches] = useState([]);
@@ -219,13 +221,49 @@ export default function AllocationPage() {
     });
   };
 
-  // Ensure Greedy dropdown ONLY shows pending bookings
   const availableBookingsForGreedy = bookings.filter(b => {
     const status = (b.bookingStatus || b.booking_status || '').toUpperCase();
     return status === 'PENDING';
   });
 
-  // --- Pagination Logic for Batches ---
+  const pendingBookings = availableBookingsForGreedy;
+  const allocatedBookings = bookings.filter(b => {
+    const s = (b.bookingStatus || b.booking_status || '').toUpperCase();
+    return s === 'ALLOCATED' || s === 'DISPATCHED' || s === 'IN_PROGRESS';
+  });
+  const finishedBookings = bookings.filter(b => {
+    const s = (b.bookingStatus || b.booking_status || '').toUpperCase();
+    return s === 'FINISHED' || s === 'COMPLETED';
+  });
+
+  const availableVehicles = vehicles.filter(v => (v.availabilityStatus || v.availability_status) === 'AVAILABLE');
+  const inUseVehicles = vehicles.filter(v => (v.availabilityStatus || v.availability_status) !== 'AVAILABLE');
+
+  const demandData = [
+    { name: 'Pending', value: pendingBookings.length, color: '#fbbf24' }, 
+    { name: 'Allocated/Active', value: allocatedBookings.length, color: '#34d399' }, 
+    { name: 'Finished', value: finishedBookings.length, color: '#38bdf8' }, 
+  ];
+
+  const fleetData = [
+    { name: 'Available / In-Use', value: availableVehicles.length, color: '#34d399' }, 
+    { name: 'Maintenance', value: inUseVehicles.length, color: '#f43f5e' }, 
+  ];
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl">
+          <p className="text-xs font-bold text-white mb-1">{payload[0].name}</p>
+          <p className="text-sm font-mono font-black" style={{ color: payload[0].payload.color }}>
+            {payload[0].value} Units
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const totalBatches = batches.length;
   const totalPages = Math.ceil(totalBatches / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -274,18 +312,95 @@ export default function AllocationPage() {
             <div className="bg-slate-800/80 px-5 py-3 rounded-2xl border border-slate-700/80 backdrop-blur-sm text-right">
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Fleet & Booking Context</div>
               <div className="text-sm font-extrabold text-emerald-400">
-                {vehicles.length} Vehicles | {bookings.length} Demands
+                 Vehicles vs Demands
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Demand Status Chart */}
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl flex items-center justify-between">
+            <div className="w-1/2">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-2 mb-2">
+                <Activity className="w-4 h-4 text-emerald-400" /> Demand Telemetry
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed mb-4">Live distribution of farmer harvester booking statuses.</p>
+              <div className="space-y-2">
+                {demandData.map((d, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }}></span>
+                    <span>{d.name}: {d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="w-1/2 h-[160px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={demandData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={70}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {demandData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl flex items-center justify-between">
+            <div className="w-1/2">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-2 mb-2">
+                <Tractor className="w-4 h-4 text-sky-400" /> Fleet Availability
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed mb-4">Real-time status of connected heavy agricultural machinery.</p>
+              <div className="space-y-2">
+                {fleetData.map((d, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }}></span>
+                    <span>{d.name}: {d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="w-1/2 h-[160px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={fleetData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={70}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {fleetData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Controls Column */}
           <div className="space-y-6">
             
-            {/* Hungarian Batch Trigger Card */}
             <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4 shadow-xl">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
@@ -307,7 +422,6 @@ export default function AllocationPage() {
               </button>
             </div>
 
-            {/* Greedy Real-Time Trigger Card */}
             <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4 shadow-xl">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-sky-500/10 text-sky-400 rounded-xl border border-sky-500/20">
@@ -354,7 +468,6 @@ export default function AllocationPage() {
             </div>
           </div>
 
-          {/* Results Column */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl min-h-[420px] flex flex-col justify-between space-y-6 shadow-xl">
               <div className="flex justify-between items-center">
@@ -397,7 +510,6 @@ export default function AllocationPage() {
                     </div>
                   </div>
 
-                  {/* Assignments Pairings */}
                   <div>
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
                       Matched Machinery & Job Pairings
@@ -437,7 +549,6 @@ export default function AllocationPage() {
                                 </span>
                               </div>
 
-                              {/* Vehicle Info */}
                               <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white">
                                   <Tractor className="w-5 h-5 text-emerald-400" />
@@ -451,7 +562,6 @@ export default function AllocationPage() {
                                 </div>
                               </div>
 
-                              {/* Transit Indicator */}
                               <div className="flex items-center gap-2 pl-3">
                                 <div className="w-0.5 h-5 bg-slate-800" />
                                 <div className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 font-bold">
@@ -459,7 +569,6 @@ export default function AllocationPage() {
                                 </div>
                               </div>
 
-                              {/* Booking Info */}
                               <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
                                   <Sprout className="w-5 h-5" />
@@ -504,7 +613,6 @@ export default function AllocationPage() {
           </div>
         </div>
 
-        {/* Global Batches History Table */}
         <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl space-y-4 shadow-xl">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
@@ -520,7 +628,6 @@ export default function AllocationPage() {
             </button>
           </div>
 
-          {/* Pending Bookings List with Edit Option */}
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Bookings Quick Edit Roster</h3>
             <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
@@ -637,7 +744,6 @@ export default function AllocationPage() {
               </table>
             </div>
             
-            {/* Pagination Controls matching the requested layout */}
             {totalBatches > 0 && (
               <div className="flex justify-end items-center mt-4 gap-4 text-xs font-medium text-slate-400">
                 <div className="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg">
@@ -666,7 +772,6 @@ export default function AllocationPage() {
 
       </div>
 
-      {/* Edit Pending Booking Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-8 shadow-2xl space-y-6 text-white max-h-[90vh] overflow-y-auto">
