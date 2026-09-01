@@ -16,7 +16,9 @@ import {
   AlertCircle,
   Compass,
   Tractor,
-  Flag
+  Flag,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 
 export default function FarmerPortal() {
@@ -27,6 +29,27 @@ export default function FarmerPortal() {
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
+
+  // Edit Pending Booking Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isUpdatingBooking, setIsUpdatingBooking] = useState(false);
+  const [editForm, setEditForm] = useState({
+    booking_id: '',
+    bookingId: '',
+    farmer_id: 1,
+    farmerId: 1,
+    farm_lat: 8.3350,
+    farmLat: 8.3350,
+    farm_lng: 80.4450,
+    farmLng: 80.4450,
+    acreage: 25.0,
+    crop_type: 'PADDY',
+    cropType: 'PADDY',
+    required_window_start: '2026-09-01T07:30',
+    requiredWindowStart: '2026-09-01T07:30',
+    required_window_end: '2026-09-01T18:00',
+    requiredWindowEnd: '2026-09-01T18:00'
+  });
 
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -135,6 +158,66 @@ export default function FarmerPortal() {
       alert('Failed to update status: ' + (err.response?.data?.message || err.message));
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  // Open edit modal for pending bookings
+  const handleOpenEditBooking = (b) => {
+    const id = b.bookingId || b.booking_id;
+    const crop = b.cropType || b.crop_type || 'PADDY';
+    const acreage = b.acreage || 25.0;
+    const start = b.requiredWindowStart || b.required_window_start || '2026-09-01T07:30';
+    const end = b.requiredWindowEnd || b.required_window_end || '2026-09-01T18:00';
+    const lat = b.farmLat !== undefined ? b.farmLat : (b.farm_lat || 8.3350);
+    const lng = b.farmLng !== undefined ? b.farmLng : (b.farm_lng || 80.4450);
+
+    setEditForm({
+      booking_id: id,
+      bookingId: id,
+      farmer_id: b.farmerId || b.farmer_id || 1,
+      farmerId: b.farmerId || b.farmer_id || 1,
+      farm_lat: lat,
+      farmLat: lat,
+      farm_lng: lng,
+      farmLng: lng,
+      acreage: acreage,
+      crop_type: crop,
+      cropType: crop,
+      required_window_start: start,
+      requiredWindowStart: start,
+      required_window_end: end,
+      requiredWindowEnd: end
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle saving the updated pending booking via Core Service
+  const handleUpdateBooking = async (e) => {
+    e.preventDefault();
+    setIsUpdatingBooking(true);
+    try {
+      const bookingId = editForm.booking_id || editForm.bookingId;
+      await api.core.createBooking(editForm);
+      setShowEditModal(false);
+      await loadData();
+      alert(`🌾 Booking #${bookingId} successfully updated!`);
+    } catch (err) {
+      alert('Update failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsUpdatingBooking(false);
+    }
+  };
+
+  // Handle deleting a pending booking
+  const handleDeleteBooking = async (bookingId) => {
+    if (!confirm(`Are you sure you want to delete Booking #${bookingId}?`)) return;
+    try {
+      await api.core.deleteBooking(bookingId);
+      setShowEditModal(false); // Close modal if open
+      await loadData();
+      alert(`🗑️ Booking #${bookingId} successfully deleted!`);
+    } catch (err) {
+      alert('Deletion failed: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -294,7 +377,7 @@ export default function FarmerPortal() {
                           <th className="p-4">Acreage</th>
                           <th className="p-4">Service Period (Start → End)</th>
                           <th className="p-4">Status</th>
-                          <th className="p-4 text-right">Map Location</th>
+                          <th className="p-4 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800 font-medium">
@@ -323,13 +406,20 @@ export default function FarmerPortal() {
                                   {status}
                                 </span>
                               </td>
-                              <td className="p-4 text-right">
+                              <td className="p-4 text-right space-x-2">
+                                <button
+                                  onClick={() => handleOpenEditBooking(b)}
+                                  className="inline-flex items-center gap-1 text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-xl transition-colors border border-slate-700"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>Edit</span>
+                                </button>
                                 <button
                                   onClick={() => openMap(lat, lng, crop, id)}
                                   className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-emerald-400 bg-slate-900 hover:bg-emerald-500/10 px-3 py-1.5 rounded-xl transition-colors border border-slate-800"
                                 >
                                   <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                                  <span>View Map</span>
+                                  <span>Map</span>
                                 </button>
                               </td>
                             </tr>
@@ -510,6 +600,7 @@ export default function FarmerPortal() {
                                     <option value="DISPATCHED">DISPATCHED</option>
                                     <option value="IN_PROGRESS">IN PROGRESS</option>
                                     <option value="FINISHED">FINISHED</option>
+                                    <option value="COMPLETED">COMPLETED</option>
                                   </select>
                                   {isUpdating && <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>}
                                 </div>
@@ -662,6 +753,150 @@ export default function FarmerPortal() {
                     className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 py-3 rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
                   >
                     {isSubmitting ? 'Submitting...' : 'Confirm Request'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Pending Booking Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-8 shadow-2xl space-y-6 text-white max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+                <h3 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
+                  <Compass className="w-5 h-5 text-emerald-400" />
+                  Edit Pending Booking #{editForm.booking_id || editForm.bookingId}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => handleDeleteBooking(editForm.booking_id || editForm.bookingId)}
+                    className="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-400 hover:text-white hover:bg-rose-500 transition-colors"
+                    title="Delete Booking"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => setShowEditModal(false)} 
+                    className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              <form onSubmit={handleUpdateBooking} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Crop Type</label>
+                  <select 
+                    value={editForm.crop_type} 
+                    onChange={e => setEditForm({
+                      ...editForm, 
+                      crop_type: e.target.value,
+                      cropType: e.target.value
+                    })}
+                    className="w-full bg-slate-950 border border-slate-800 p-3.5 rounded-xl text-sm font-semibold text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                  >
+                    <option value="PADDY">Paddy (Rice)</option>
+                    <option value="CORN">Corn</option>
+                    <option value="WHEAT">Wheat</option>
+                    <option value="SUGARCANE">Sugarcane</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Field Acreage</label>
+                  <input 
+                    type="number" 
+                    step="0.5"
+                    value={editForm.acreage} 
+                    onChange={e => setEditForm({...editForm, acreage: parseFloat(e.target.value)})}
+                    className="w-full bg-slate-950 border border-slate-800 p-3.5 rounded-xl text-sm font-semibold text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                  />
+                </div>
+
+                {/* GPS Coordinates Selectors */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4" /> Farm Plot GPS Location Coordinates
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Latitude</label>
+                      <input 
+                        type="number" 
+                        step="0.0001"
+                        value={editForm.farm_lat} 
+                        onChange={e => {
+                          const val = parseFloat(e.target.value);
+                          setEditForm({...editForm, farm_lat: val, farmLat: val});
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 p-2.5 rounded-xl text-xs font-mono text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Longitude</label>
+                      <input 
+                        type="number" 
+                        step="0.0001"
+                        value={editForm.farm_lng} 
+                        onChange={e => {
+                          const val = parseFloat(e.target.value);
+                          setEditForm({...editForm, farm_lng: val, farmLng: val});
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 p-2.5 rounded-xl text-xs font-mono text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Window Start</label>
+                    <input 
+                      type="datetime-local" 
+                      value={editForm.required_window_start} 
+                      onChange={e => setEditForm({
+                        ...editForm, 
+                        required_window_start: e.target.value,
+                        requiredWindowStart: e.target.value
+                      })}
+                      className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs font-medium text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Window End</label>
+                    <input 
+                      type="datetime-local" 
+                      value={editForm.required_window_end} 
+                      onChange={e => setEditForm({
+                        ...editForm, 
+                        required_window_end: e.target.value,
+                        requiredWindowEnd: e.target.value
+                      })}
+                      className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs font-medium text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowEditModal(false)}
+                    className="flex-1 bg-slate-800 text-slate-300 py-3 rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isUpdatingBooking}
+                    className="flex-[2] bg-emerald-500 hover:bg-emerald-400 text-slate-950 py-3 rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  >
+                    {isUpdatingBooking ? 'Saving Changes...' : 'Update Booking'}
                   </button>
                 </div>
               </form>
