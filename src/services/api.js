@@ -71,6 +71,7 @@ export const api = {
 
   // 3. TASK 3: NETWORK ANALYSIS (Port 8083)
   network: {
+    getGraph: () => networkClient.get('/network-analysis/graph'),
     analyzeRegion: (regionId) => networkClient.get(`/network-analysis/analyze?regionId=${regionId}`),
     detectBridges: (regionId) => networkClient.get(`/network-analysis/bridges/detect?regionId=${regionId}`),
     calculateMST: (regionId) => networkClient.get(`/network-analysis/mst/calculate?regionId=${regionId}`),

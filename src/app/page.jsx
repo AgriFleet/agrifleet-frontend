@@ -24,7 +24,11 @@ export default function OperationsDashboard() {
   const [stats, setStats] = useState({
     totalVehicles: 0,
     availableVehicles: 0,
+    inUseVehicles: 0,
+    maintenanceVehicles: 0,
     totalBookings: 0,
+    pendingBookings: 0,
+    activeBookings: 0,
     loading: true,
   });
 
@@ -39,14 +43,34 @@ export default function OperationsDashboard() {
         const vehicles = vRes.status === 'fulfilled' ? vRes.value.data || [] : [];
         const bookings = bRes.status === 'fulfilled' ? bRes.value.data || [] : [];
         
+        // Vehicle Categorization
         const available = vehicles.filter(
           (v) => (v.availabilityStatus || v.availability_status) === 'AVAILABLE'
         ).length;
+        const inUse = vehicles.filter(
+          (v) => (v.availabilityStatus || v.availability_status) === 'IN_USE'
+        ).length;
+        const maintenance = vehicles.filter(
+          (v) => (v.availabilityStatus || v.availability_status) === 'MAINTENANCE'
+        ).length;
+
+        // Booking Categorization
+        const pending = bookings.filter(
+          (b) => (b.bookingStatus || b.booking_status) === 'PENDING'
+        ).length;
+        const active = bookings.filter((b) => {
+          const s = (b.bookingStatus || b.booking_status || '').toUpperCase();
+          return s === 'ALLOCATED' || s === 'DISPATCHED' || s === 'IN_PROGRESS';
+        }).length;
 
         setStats({
           totalVehicles: vehicles.length,
           availableVehicles: available,
+          inUseVehicles: inUse,
+          maintenanceVehicles: maintenance,
           totalBookings: bookings.length,
+          pendingBookings: pending,
+          activeBookings: active,
           loading: false,
         });
       } catch (err) {
@@ -130,12 +154,14 @@ export default function OperationsDashboard() {
     },
   ];
 
+  // Dynamic Fleet Data pulling from the real API response
   const fleetChartData = [
-    { name: 'Available', value: stats.availableVehicles || 3, color: '#34d399' },
-    { name: 'Dispatched', value: Math.max(1, stats.totalVehicles - stats.availableVehicles), color: '#38bdf8' },
-    { name: 'Maintenance', value: 1, color: '#f87171' },
+    { name: 'Available', value: stats.availableVehicles, color: '#34d399' }, // emerald
+    { name: 'Dispatched', value: stats.inUseVehicles, color: '#38bdf8' }, // sky blue
+    { name: 'Maintenance', value: stats.maintenanceVehicles, color: '#f87171' }, // rose
   ];
 
+  // Hardcoded benchmark data to visualize theoretical alg limits
   const taskPerformanceData = [
     { name: 'A* Routing', ms: 14, algo: 'Task 1' },
     { name: 'Hungarian Match', ms: 28, algo: 'Task 2' },
@@ -217,12 +243,12 @@ export default function OperationsDashboard() {
 
         <div className="glass-card p-6 rounded-3xl flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Active Field Bookings</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Active Bookings</span>
             <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-              {stats.loading ? '...' : stats.totalBookings} <span className="text-xs font-normal text-slate-400">Requests</span>
+              {stats.loading ? '...' : stats.activeBookings} <span className="text-xs font-normal text-slate-400">/ {stats.totalBookings} Total</span>
             </div>
             <span className="text-[11px] font-semibold text-cyan-500 mt-1 inline-flex items-center gap-1">
-              <Activity className="w-3 h-3" /> Live Demands
+              <Activity className="w-3 h-3" /> {stats.pendingBookings} Pending Queue
             </span>
           </div>
           <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl text-cyan-500">
@@ -390,4 +416,4 @@ export default function OperationsDashboard() {
 
     </div>
   );
-}
+}
