@@ -37,6 +37,12 @@ export const api = {
     createVehicle: (vehicleData) => coreClient.post('/vehicles', vehicleData),
     updateVehicle: (id, vehicleData) => coreClient.put(`/vehicles/${id}`, vehicleData),
     deleteVehicle: (id) => coreClient.delete(`/vehicles/${id}`),
+
+    getAllDepots: () => coreClient.get('/depots'),
+    getDepotById: (id) => coreClient.get(`/depots/${id}`),
+    createDepot: (depotData) => coreClient.post('/depots', depotData),
+    updateDepot: (id, depotData) => coreClient.put(`/depots/${id}`, depotData),
+    deleteDepot: (id) => coreClient.delete(`/depots/${id}`),
     
     getAllBookings: () => coreClient.get('/bookings'),
     getBookingById: (id) => coreClient.get(`/bookings/${id}`),
@@ -85,6 +91,7 @@ export const api = {
 
   // 5. TASK 5: TOUR & MULTI-JOB OPTIMIZATION (Port 8085)
   selection: {
+    getAvailableFarms: () => tourClient.get('/selection/farms'),
     maximizeAcreageValue: (payload) => tourClient.post('/selection/maximize-acreage-value', payload),
   },
   tour: {
