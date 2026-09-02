@@ -37,6 +37,12 @@ export const api = {
     createVehicle: (vehicleData) => coreClient.post('/vehicles', vehicleData),
     updateVehicle: (id, vehicleData) => coreClient.put(`/vehicles/${id}`, vehicleData),
     deleteVehicle: (id) => coreClient.delete(`/vehicles/${id}`),
+
+    getAllDepots: () => coreClient.get('/depots'),
+    getDepotById: (id) => coreClient.get(`/depots/${id}`),
+    createDepot: (depotData) => coreClient.post('/depots', depotData),
+    updateDepot: (id, depotData) => coreClient.put(`/depots/${id}`, depotData),
+    deleteDepot: (id) => coreClient.delete(`/depots/${id}`),
     
     getAllBookings: () => coreClient.get('/bookings'),
     getBookingById: (id) => coreClient.get(`/bookings/${id}`),
@@ -65,6 +71,7 @@ export const api = {
 
   // 3. TASK 3: NETWORK ANALYSIS (Port 8083)
   network: {
+    getGraph: () => networkClient.get('/network-analysis/graph'),
     analyzeRegion: (regionId) => networkClient.get(`/network-analysis/analyze?regionId=${regionId}`),
     detectBridges: (regionId) => networkClient.get(`/network-analysis/bridges/detect?regionId=${regionId}`),
     calculateMST: (regionId) => networkClient.get(`/network-analysis/mst/calculate?regionId=${regionId}`),
@@ -84,6 +91,7 @@ export const api = {
 
   // 5. TASK 5: TOUR & MULTI-JOB OPTIMIZATION (Port 8085)
   selection: {
+    getAvailableFarms: () => tourClient.get('/selection/farms'),
     maximizeAcreageValue: (payload) => tourClient.post('/selection/maximize-acreage-value', payload),
   },
   tour: {
