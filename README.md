@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AgriFleet Frontend
 
-## Getting Started
+The AgriFleet frontend is a Next.js dashboard for an intelligent agricultural logistics decision-support system. It provides a single interface for managing farmers, bookings, vehicles, routes, resource allocation, network analysis, and multi-job tour optimization.
 
-First, run the development server:
+## Features
+
+- Operations dashboard with live fleet and booking summaries
+- Farmer booking portal for creating, updating, and deleting bookings
+- Vehicle management and fleet status updates
+- A\* and Dijkstra route optimization with route caching
+- Hungarian batch allocation and real-time greedy allocation
+- Road-network analysis, bridges, minimum spanning tree, cuts, and weight checks
+- TOPSIS vehicle or candidate ranking and harvest-delay prediction
+- Farm selection and multi-job tour optimization
+- Interactive Leaflet and MapLibre map views
+
+## Technology
+
+- Next.js `16.3.3` with the App Router
+- React `19.2.8`
+- Tailwind CSS `4`
+- Axios for backend communication
+- Leaflet, React Leaflet, MapLibre GL, and Google Maps integrations
+- Recharts for data visualization
+
+## Prerequisites
+
+- Node.js with npm
+- The AgriFleet backend services running locally, unless the API URLs are configured for another environment
+
+## Installation
+
+From this directory:
+
+```bash
+npm install
+```
+
+Create a `.env.local` file when the backend services are not using their default local URLs. All variables are optional:
+
+```env
+NEXT_PUBLIC_CORE_URL=http://localhost:8080/api/v1
+NEXT_PUBLIC_ROUTING_URL=http://localhost:8081/api/v1
+NEXT_PUBLIC_ALLOCATION_URL=http://localhost:8082/api/v1
+NEXT_PUBLIC_NETWORK_URL=http://localhost:8083/api/v1
+NEXT_PUBLIC_DECISION_URL=http://localhost:8084/api/v1
+NEXT_PUBLIC_TOUR_URL=http://localhost:8085/api/v1
+```
+
+The frontend reads these values in `src/services/api.js`. If a variable is omitted, its listed default is used.
+
+## Running Locally
+
+Start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Available screens:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Path                 | Purpose                              |
+| -------------------- | ------------------------------------ |
+| `/`                  | Operations dashboard                 |
+| `/farmer`            | Farmer bookings                      |
+| `/vehicles`          | Vehicle management                   |
+| `/routing`           | Route optimization                   |
+| `/allocation`        | Resource allocation                  |
+| `/network`           | Network analysis                     |
+| `/decision-support`  | Decision support and predictions     |
+| `/tour-optimization` | Farm selection and tour optimization |
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run dev       # Start the development server
+npm run lint      # Run ESLint
+npm run build     # Create a production build
+npm run start     # Serve the production build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+For a production run:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run build
+npm run start
+```
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```text
+src/
+  app/              App Router pages and feature screens
+  components/       Shared UI and map components
+  context/          Shared React context
+  services/api.js   Centralized Axios clients and API methods
+public/             Static assets
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Each backend service has its own Axios client in `src/services/api.js`. Keep feature-specific API calls in that service layer rather than creating clients directly in page components.
+
+## Troubleshooting
+
+- A browser network error usually means the corresponding backend service is not running or its `NEXT_PUBLIC_*_URL` value is incorrect.
+- After changing `.env.local`, restart `npm run dev` so Next.js reloads the public environment variables.
+- Map tiles require network access to the configured map provider.
